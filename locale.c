@@ -3187,10 +3187,37 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
      *
      * This looks more complicated than it is, mainly due to the #ifdefs.
      *
-     * We try to set LC_ALL to the value determined by the environment.  If
-     * there is no LC_ALL on this platform, we try the individual categories we
-     * know about.  If this works, we are done.
+     * We try to set LC_ALL to the value determined by the environment.
+     * So effectively, this routine is just
      *
+     *    setlocale(LC_ALL, "");
+     *
+     * followed by a bunch of
+     *
+     *    setlocale(LC_foo, NULL)
+     *
+     * so that perl can store the current value of each category 'foo' that it
+     * needs to know about.
+     *
+     * On embedded perls where the locale is already in effect, the first step
+     * is skipped.  This situation is indicated by checking for a special
+     * environment variable.
+     *
+     * * indicate we're in this situation.  We simply set setlocale's 2nd
+     * parameter to be a NULL instead of "".  That indicates to setlocale that
+     * it is not to change anything, but to return the current value,
+     * effectively initializing perl's db to what the locale already is.
+     * routine instead effectively becomes
+     *
+     *    setlocale(LC_ALL, NULL);
+     *
+     * just so perl's records can be updated.
+     *
+     * Complications arise if there is no LC_ALL on this platform or if there
+     * is some failure.
+     * , we try the
+     * individual categories we
+     * know about.  If this works, we are done.
      * But if it doesn't work, we have to do something else.  We search the
      * environment variables ourselves instead of relying on the system to do
      * it.  We look at, in order, LC_ALL, LANG, a system default locale (if we
@@ -3206,13 +3233,6 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
      * and that this couldn't be folded into the loop, but barring any real
      * platforms to test on, it's staying as-is
      *
-     * A slight complication is that in embedded Perls, the locale may already
-     * be set-up, and we don't want to get it from the normal environment
-     * variables.  This is handled by having a special environment variable
-     * indicate we're in this situation.  We simply set setlocale's 2nd
-     * parameter to be a NULL instead of "".  That indicates to setlocale that
-     * it is not to change anything, but to return the current value,
-     * effectively initializing perl's db to what the locale already is.
      *
      * We play the same trick with NULL if a LC_ALL succeeds.  We call
      * setlocale() on the individual categores with NULL to get their existing

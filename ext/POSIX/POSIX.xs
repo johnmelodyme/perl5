@@ -3323,14 +3323,15 @@ int
 mblen(s, n)
 	char *		s
 	size_t		n
-    PREINIT:
-#if defined(USE_ITHREADS) && defined(HAS_MBRLEN)
-        mbstate_t ps;
-#endif
     CODE:
 #if defined(USE_ITHREADS) && defined(HAS_MBRLEN)
-        memset(&ps, 0, sizeof(ps)); /* Initialize state */
-        RETVAL = mbrlen(s, n, &ps); /* Prefer reentrant version */
+        if (s == NULL) {
+            memset(&PL_mbrlen_ps, 0, sizeof(PL_mbrlen_ps)); /* Init. state */
+            RETVAL = 0;
+        }
+        else {
+            RETVAL = mbrlen(s, n, &PL_mbrlen_ps); /* Prefer reentrant version */
+        }
 #else
         RETVAL = mblen(s, n);
 #endif
