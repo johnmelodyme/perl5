@@ -21,7 +21,7 @@
 
 /* New variables must be added to the very end for binary compatibility. */
 
-/* Don't forget to add your variable also to perl_clone()! (in sv.c) */
+/* DON'T FORGET to add your variable also to perl_clone()! (in sv.c) */
 
 /* The 'I' prefix is only needed for vars that need appropriate #defines
  * generated when built with or without MULTIPLICITY.  It is also used
@@ -816,6 +816,7 @@ PERLVARI(I, dump_re_max_len, STRLEN, 60)
 PERLVAR(I, internal_random_state, PL_RANDOM_STATE_TYPE)
 
 #ifdef HAS_MBRLEN
+    /* XXX perl_clone? */
 PERLVAR(I, mbrlen_ps, mbstate_t)
 #endif
 

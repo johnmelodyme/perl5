@@ -3326,7 +3326,7 @@ mblen(s, n)
     CODE:
 #if defined(USE_ITHREADS) && defined(HAS_MBRLEN)
         if (! SvPOK(s)) {
-            memset(&PL_mbrlen_ps, 0, sizeof(PL_mbrlen_ps)); /* Init. state */
+            memzero(&PL_mbrlen_ps, sizeof(PL_mbrlen_ps)); /* Initialize state */
             RETVAL = 0;
         }
         else {
