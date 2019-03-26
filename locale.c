@@ -3401,6 +3401,11 @@ Perl_init_i18nl10n(pTHX_ int printwarn)
 #    endif
 #  endif    /* DEBUGGING */
 
+#ifdef HAS_MBRLEN
+    /* Zero the per-thread mbrlen() state variable */
+    memset(&PL_mbrlen_ps, 0, sizeof(PL_mbrlen_ps));
+#endif
+
     /* Initialize the cache of the program's UTF-8ness for the always known
      * locales C and POSIX */
     my_strlcpy(PL_locale_utf8ness, C_and_POSIX_utf8ness,
