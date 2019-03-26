@@ -3321,19 +3321,25 @@ abort()
 
 int
 mblen(s, n)
-	char *		s
+	SV *		s
 	size_t		n
     CODE:
 #if defined(USE_ITHREADS) && defined(HAS_MBRLEN)
-        if (s == NULL) {
+        if (! SvPOK(s)) {
             memset(&PL_mbrlen_ps, 0, sizeof(PL_mbrlen_ps)); /* Init. state */
             RETVAL = 0;
         }
         else {
-            RETVAL = mbrlen(s, n, &PL_mbrlen_ps); /* Prefer reentrant version */
+            RETVAL = mbrlen(SvPVX(s), n, &PL_mbrlen_ps); /* Prefer reentrant
+                                                            version */
         }
 #else
-        RETVAL = mblen(s, n);
+        if (! SvPOK(s)) {
+            RETVAL = mblen(NULL, n);
+        }
+        else {
+            RETVAL = mblen(SvPVX(s), n);
+        }
 #endif
     OUTPUT:
         RETVAL
