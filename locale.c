@@ -589,11 +589,12 @@ S_emulate_setlocale(const int category,
         /* If this assert fails, adjust the size of curlocales in intrpvar.h */
         STATIC_ASSERT_STMT(C_ARRAY_LENGTH(PL_curlocales) > LC_ALL_INDEX);
 
-#    if   defined(_NL_LOCALE_NAME)                      \
-     &&   defined(DEBUGGING)                            \
+#    if   defined(_NL_LOCALE_NAME)                                          \
+     &&   defined(DEBUGGING)                                                \
+          /* On systems that accept any locale name, the real underlying    \
+           * locale is often returned by this internal function, so we      \
+           * can't use it */                                                \
      && ! defined(SETLOCALE_ACCEPTS_ANY_LOCALE_NAME)
-          /* On systems that accept any locale name, the real underlying locale
-           * is often returned by this internal function, so we can't use it */
         {
             /* Internal glibc for querylocale(), but doesn't handle
              * empty-string ("") locale properly; who knows what other
@@ -739,7 +740,7 @@ S_emulate_setlocale(const int category,
 
 #  endif
 
-    }
+    }   /* End of this being setlocale(LC_foo, NULL) */
 
     /* Here, we are switching locales. */
 
@@ -858,7 +859,7 @@ S_emulate_setlocale(const int category,
                 }
             }
         }
-    }
+    }   /* End of this being setlocale(LC_foo, "") */
     else if (strchr(locale, ';')) {
 
         /* LC_ALL may actually incude a conglomeration of various categories.
@@ -955,7 +956,8 @@ S_emulate_setlocale(const int category,
         assert(category == LC_ALL);
 
         return do_setlocale_c(LC_ALL, NULL);
-    }
+    }   /* End of this being setlocale(LC_ALL,
+           "LC_CTYPE=foo;LC_NUMERIC=bar;...") */
 
   ready_to_set: ;
 
@@ -1009,7 +1011,9 @@ S_emulate_setlocale(const int category,
 
 #  endif
 
-    /* If we are switching to the LC_ALL C locale, it already exists.  Use
+    /* If this call is to switch to the LC_ALL C locale, it already exists, and
+     * in fact, we already have switched to it (in preparation for what
+     * normally is to come).  But since we're already there, continue to use
      * it instead of trying to create a new locale */
     if (mask == LC_ALL_MASK && isNAME_C_OR_POSIX(locale)) {
 
@@ -1027,6 +1031,15 @@ S_emulate_setlocale(const int category,
         /* We already had switched to the C locale in preparation for freeing
          * 'old_obj' */
         if (old_obj != LC_GLOBAL_LOCALE && old_obj != PL_C_locale_obj) {
+
+#  ifdef DEBUGGING
+
+            if (DEBUG_Lv_TEST || debug_initialization) {
+                PerlIO_printf(Perl_debug_log,
+                          "%s:%d: freeing %p\n", __FILE__, __LINE__, old_obj);
+            }
+
+#  endif
             freelocale(old_obj);
         }
     }
@@ -5631,7 +5644,7 @@ Perl_thread_locale_term()
 
     {   /* Free up */
         locale_t cur_obj = uselocale(LC_GLOBAL_LOCALE);
-        if (cur_obj != LC_GLOBAL_LOCALE) {
+        if (cur_obj != LC_GLOBAL_LOCALE && cur_obj != PL_C_locale_obj) {
             freelocale(cur_obj);
         }
     }
