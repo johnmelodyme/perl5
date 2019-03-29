@@ -1844,6 +1844,19 @@ STMT_START {                                                                    
         previous_occurrence_end = s;                        \
     }
 
+#define REXEC_FBC_FIND_NEXT_UTF8_BYTE_SCAN(b, COND)         \
+    while (s < strend) {                                    \
+        s = (char *) memchr(s, b, strend -s);               \
+        if (s == NULL) {                                    \
+            s = (char *) strend;                            \
+            break;                                          \
+        }                                                   \
+                                                            \
+        if (COND) FBC_CHECK_AND_TRY                         \
+        s += UTF8SKIP(s);                                   \
+        previous_occurrence_end = s;                        \
+    }
+
 /* The three macros below are slightly different versions of the same logic.
  *
  * The first is for /a and /aa when the target string is UTF-8.  This can only
@@ -2147,8 +2160,19 @@ S_find_byclass(pTHX_ regexp * prog, const regnode *c, char *s,
         break;
 
     case ANYOFH:
-        if (utf8_target) REXEC_FBC_CLASS_SCAN(TRUE,
+        if (utf8_target) {  /* Can't possibly match a non-UTF-8 target */
+            U8 first_byte = FLAGS(c);
+
+            if (first_byte) {   /* We know what the first byte of any matched
+                                   string should be */
+                REXEC_FBC_FIND_NEXT_UTF8_BYTE_SCAN(first_byte,
                       reginclass(prog, c, (U8*)s, (U8*) strend, utf8_target));
+            }
+            else {
+                REXEC_FBC_CLASS_SCAN(TRUE,
+                      reginclass(prog, c, (U8*)s, (U8*) strend, utf8_target));
+            }
+        }
         break;
 
     case EXACTFAA_NO_TRIE: /* This node only generated for non-utf8 patterns */
@@ -6747,6 +6771,8 @@ S_regmatch(pTHX_ regmatch_info *reginfo, char *startpos, regnode *prog)
         case ANYOFH:
             if (   ! utf8_target
                 ||   NEXTCHR_IS_EOS
+                ||  (   ANYOF_FLAGS(scan) != 0
+                     && ANYOF_FLAGS(scan) != (U8) *locinput)
 	        || ! reginclass(rex, scan, (U8*)locinput, (U8*) loceol,
                                                                    utf8_target))
             {
@@ -9496,13 +9522,27 @@ S_regrepeat(pTHX_ regexp *prog, char **startposp, const regnode *p,
         break;
 
     case ANYOFH:
-        if (utf8_target) while (   hardcount < max
-                                && scan < this_eol
-                                && reginclass(prog, p, (U8*)scan, (U8*) this_eol,
+        if (utf8_target) {  /* ANYOFH only can match UTF-8 targets */
+            if (ANYOF_FLAGS(p)) {   /* If we know the first byte of what
+                                       matches, we can avoid calling reginclass
+                                     */
+                while (   hardcount < max
+                       && scan < this_eol
+                       && (U8) *scan == ANYOF_FLAGS(p)
+                       && reginclass(prog, p, (U8*)scan, (U8*) this_eol,
                                                                   TRUE))
-        {
-            scan += UTF8SKIP(scan);
-            hardcount++;
+                {
+                    scan += UTF8SKIP(scan);
+                    hardcount++;
+                }
+            }
+            else while (  hardcount < max
+                        && scan < this_eol
+                        && reginclass(prog, p, (U8*)scan, (U8*) this_eol, TRUE))
+            {
+                scan += UTF8SKIP(scan);
+                hardcount++;
+            }
         }
         break;
 
